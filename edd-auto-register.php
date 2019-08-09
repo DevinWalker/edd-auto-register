@@ -42,11 +42,10 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		 * time. Also prevents needing to define globals all over the place.
 		 *
 		 * @since 1.0
-		 *
 		 */
 		public static function get_instance() {
 			if ( ! isset( self::$instance ) && ! ( self::$instance instanceof EDD_Auto_Register ) ) {
-				self::$instance = new EDD_Auto_Register;
+				self::$instance = new EDD_Auto_Register();
 				self::$instance->setup_globals();
 				self::$instance->hooks();
 			}
@@ -79,13 +78,12 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		/**
 		 * Globals
 		 *
-		 * @since 1.0
-		 *
 		 * @return void
+		 * @since 1.0
 		 */
 		private function setup_globals() {
 
-			$this->version    = '1.3.11';
+			$this->version = '1.3.11';
 
 			// paths
 			$this->file       = __FILE__;
@@ -98,15 +96,15 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		/**
 		 * Setup the default hooks and actions
 		 *
-		 * @since 1.0
-		 *
 		 * @return void
+		 * @since 1.0
 		 */
 		private function hooks() {
 
 			if ( ! class_exists( 'EDD_Customer' ) ) {
 				edd_debug_log( 'Auto Register: Not loaded, EDD_Customer class is not available.' );
 				add_action( 'admin_notices', array( $this, 'admin_notices' ) );
+
 				return;
 			}
 
@@ -156,8 +154,8 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		 * Loads the plugin language files
 		 *
 		 * @access public
-		 * @since 1.0
 		 * @return void
+		 * @since 1.0
 		 */
 		public function load_textdomain() {
 			// Set filter for plugin's languages directory
@@ -245,12 +243,12 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		/**
 		 * Email Template Body
 		 *
-		 * @global wpdb         $wpdb      WordPress database object for queries.
-		 * @global PasswordHash $wp_hasher Portable PHP password hashing framework instance.
-		 *
-		 * @since 1.0
 		 * @param WP_User $user
+		 *
 		 * @return string $default_email_body Body of the email
+		 * @since 1.0
+		 * @global wpdb $wpdb WordPress database object for queries.
+		 * @global PasswordHash $wp_hasher Portable PHP password hashing framework instance.
 		 */
 		public function get_email_body_content( $user ) {
 
@@ -258,7 +256,7 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 
 			// Taken from WP Core code in pluggable.php
 			// Generate something random for a password reset key.
-			$key    = wp_generate_password( 20, false );
+			$key = wp_generate_password( 20, false );
 			// Now insert the key, hashed, into the DB.
 			if ( empty( $wp_hasher ) ) {
 				require_once ABSPATH . WPINC . '/class-phpass.php';
@@ -268,21 +266,25 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 			$wpdb->update( $wpdb->users, array( 'user_activation_key' => $hashed ), array( 'user_login' => $user->user_login ) );
 
 			// Email body
+			$default_email_body = '<h1 style="color: #000000;margin:0;padding: 28px 24px;display:block;font-family: \'Helvetica Neue\', Helvetica, Arial, \'Lucida Grande\', sans-serif;font-size:32px;font-weight: 500;line-height: 1.2;">Your Account Access</h1>' . "\n\n";
 
-			$default_email_body = '<h1 style="color: #000000;margin:0;padding: 28px 24px;display:block;font-family: \'Helvetica Neue\', Helvetica, Arial, \'Lucida Grande\', sans-serif;font-size:32px;font-weight: 500;line-height: 1.2;">GiveWP - Account Access</h1>' . "\n\n";
+			$default_email_body .= __( 'Dear', 'edd-auto-register' ) . ' ' . $user->first_name . ",\n\n";
+			$default_email_body .= __( 'Your account has successfully been created. Please find your login details below:', 'edd-auto-register' ) . "\n\n";
+			$default_email_body .= __( 'You may log in using either your email or username.', 'edd-auto-register' ) . "\n\n";
+			$default_email_body .= '<strong>' . __( 'Registered Email:' ) . '</strong> ' . $user->user_email . "\n\n";
+			$default_email_body .= '<strong>' . __( 'Your Username:' ) . '</strong> ' . $user->user_nicename . "\n\n";
 
-			$default_email_body  .= __( 'Dear', 'edd-auto-register' ) . ' ' . $user->first_name . ",\n\n";
-			$default_email_body .= __( 'Your account has been created and you now have access to your priority support, license management, downloads and more.', 'edd-auto-register' ) . "\n\n";
-//			$default_email_body .= __( 'Log in using your use your email or username:', 'edd-auto-register' ) . ' ' . $user->user_nicename . "\n\n";
-//			$default_email_body .= '<strong>' . __('Email:') . '</strong> ' . $user->user_email . "\n\n";
-//			$default_email_body .= '<strong>' . __('Username:') . '</strong> ' . $user->user_nicename. "\n\n";
-			$default_email_body .= __( 'To set your password, please visit the following address:' ) . "\r\n\r\n";
-			$default_email_body .= network_site_url( "wp-login.php?action=rp&key=$key&login=" . rawurlencode( $user->user_login ), 'login' ) . "\r\n\r\n";
-			$default_email_body .= '<strong>' . __( 'Registered Email:', 'edd-auto-register' ) . '</strong> ' . $user->user_email . "\r\n";
-			$default_email_body .= '<strong>' . __( 'Username:', 'edd-auto-register' ) . '</strong> ' . $user->user_nicename . "\r\n";
-			$default_email_body .= '<strong>' . __( 'Login:', 'edd-auto-register' ) . '</strong> ' . wp_login_url() . "\r\n";
+			$pw_option = get_option( 'edd_auto_register_enforce_password_updating', false );
 
-			$default_email_body = apply_filters( 'edd_auto_register_email_body', $default_email_body, $user->first_name, $user->user_nicename, '' );
+			if ( $pw_option ) {
+				$default_email_body .= __( "Your Password:", "edd-auto-register" ) . ' ' . $user->user_pass . "\n\n";
+			} else {
+				$default_email_body .= __( 'To set your password, please visit the following address:' ) . "\r\n\r\n";
+				$default_email_body .= network_site_url( "wp-login.php?action=rp&key=$key&login=" . rawurlencode( $user->user_login ), 'login' ) . "\r\n\r\n";
+				$default_email_body .= '<strong>' . __( 'Your Login:', 'edd-auto-register' ) . '</strong> ' . wp_login_url() . "\r\n";
+			}
+
+			$default_email_body = apply_filters( 'edd_auto_register_email_body', $default_email_body, $user );
 
 			return $default_email_body;
 		}
@@ -292,10 +294,10 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		 *
 		 * Prevents the form from being displayed when User must be logged in (Guest Checkout disabled), but "Show Register / Login Form?" is not.
 		 *
-		 * @since 1.0
-		 *
 		 * @param $can_checkout bool
+		 *
 		 * @return bool
+		 * @since 1.0
 		 */
 		public function can_checkout( $can_checkout ) {
 
@@ -391,10 +393,11 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		/**
 		 * Processes the supplied payment data to possibly register a user
 		 *
-		 * @since  1.3.3
-		 * @param  array $payment_data The Payment data
-		 * @param  int   $payment_id   The payment ID
+		 * @param array $payment_data The Payment data
+		 * @param int   $payment_id The payment ID
+		 *
 		 * @return int|WP_Error          The User ID created or an instance of WP_Error if the insert fails
+		 * @since  1.3.3
 		 */
 		public function create_user( $payment_data = array(), $payment_id = 0 ) {
 
@@ -441,9 +444,7 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 				$maybe_login_user = apply_filters( 'edd_auto_register_login_user', $maybe_login_user );
 
 				if ( true === $maybe_login_user ) {
-
 					edd_log_user_in( $user_id, $user_args['user_login'], $user_args['user_pass'] );
-
 				}
 
 				$customer = new EDD_Customer( $payment_data['user_info']['email'] );
