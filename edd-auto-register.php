@@ -1,17 +1,16 @@
 <?php
-/*
-Plugin Name: Easy Digital Downloads - Auto Register
-Plugin URI: https://easydigitaldownloads.com/downloads/auto-register/
-Description: Automatically creates a WP user account at checkout, based on customer's email address.
-Version: 1.3.10
-Author: Andrew Munro, Pippin Williamson, and Chris Klosowski
-Contributors: sumobi, mordauk, cklosows, mindctrl
-Author URI: https://easydigitaldownloads.com/
-Text Domain: edd-auto-register
-Domain Path: languages
-License: GPL-2.0+
-License URI: http://www.opensource.org/licenses/gpl-license.php
-*/
+/**
+ * Plugin Name: Easy Digital Downloads - Auto Register
+ * Plugin URI:  https://easydigitaldownloads.com/downloads/auto-register/
+ * Description: Automatically creates a WP user account at checkout, based on customer's email address.
+ * Version:     1.3.11
+ * Author:      Sandhills Development, LLC
+ * Author URI:  https://sandhillsdev.com
+ * Text Domain: edd-auto-register
+ * Domain Path: languages
+ * License:     GPL-2.0+
+ * License URI: http://www.opensource.org/licenses/gpl-license.php
+ */
 
 // Exit if accessed directly
 if ( ! defined( 'ABSPATH' ) ) {
@@ -86,13 +85,13 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		 */
 		private function setup_globals() {
 
-			$this->version    = '1.3.5';
+			$this->version    = '1.3.11';
 
 			// paths
-			$this->file         = __FILE__;
-			$this->basename     = apply_filters( 'edd_auto_register_plugin_basenname', plugin_basename( $this->file ) );
-			$this->plugin_dir   = apply_filters( 'edd_auto_register_plugin_dir_path',  plugin_dir_path( $this->file ) );
-			$this->plugin_url   = apply_filters( 'edd_auto_register_plugin_dir_url',   plugin_dir_url( $this->file ) );
+			$this->file       = __FILE__;
+			$this->basename   = apply_filters( 'edd_auto_register_plugin_basenname', plugin_basename( $this->file ) );
+			$this->plugin_dir = apply_filters( 'edd_auto_register_plugin_dir_path', plugin_dir_path( $this->file ) );
+			$this->plugin_url = apply_filters( 'edd_auto_register_plugin_dir_url', plugin_dir_url( $this->file ) );
 
 		}
 
@@ -166,8 +165,8 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 			$lang_dir = apply_filters( 'edd_auto_register_languages_directory', $lang_dir );
 
 			// Traditional WordPress plugin locale filter
-			$locale        = apply_filters( 'plugin_locale',  get_locale(), 'edd-auto-register' );
-			$mofile        = sprintf( '%1$s-%2$s.mo', 'edd-auto-register', $locale );
+			$locale = apply_filters( 'plugin_locale', get_locale(), 'edd-auto-register' );
+			$mofile = sprintf( '%1$s-%2$s.mo', 'edd-auto-register', $locale );
 
 			// Setup paths to current locale file
 			$mofile_local  = $lang_dir . $mofile;
@@ -217,20 +216,20 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 			}
 
 			// message
-			$message = $this->get_email_body_content( $user_data['first_name'], sanitize_user( $user_data['user_login'], true ), $user_data['user_pass'] );
+			$message = $this->get_email_body_content( $user );
 
 			// subject line
-			$subject = apply_filters( 'edd_auto_register_email_subject', sprintf( __( '[%s] Your username and password', 'edd-auto-register' ), $blogname ) );
+			$subject = apply_filters( 'edd_auto_register_email_subject', sprintf( __( '[%s] Your username and password info', 'edd-auto-register' ), $blogname ) );
 
 			// get from name and email from EDD options
 			$from_name  = edd_get_option( 'from_name', get_bloginfo( 'name' ) );
 			$from_email = edd_get_option( 'from_email', get_bloginfo( 'admin_email' ) );
 
-			$headers = "From: " . stripslashes_deep( html_entity_decode( $from_name, ENT_COMPAT, 'UTF-8' ) ) . " <$from_email>\r\n";
-			$headers .= "Reply-To: ". $from_email . "\r\n";
-			$headers = apply_filters( 'edd_auto_register_headers', $headers );
+			$headers  = 'From: ' . stripslashes_deep( html_entity_decode( $from_name, ENT_COMPAT, 'UTF-8' ) ) . " <$from_email>\r\n";
+			$headers .= 'Reply-To: ' . $from_email . "\r\n";
+			$headers  = apply_filters( 'edd_auto_register_headers', $headers );
 
-			$emails = new EDD_Emails;
+			$emails = new EDD_Emails();
 
 			$emails->__set( 'from_name', $from_name );
 			$emails->__set( 'from_email', $from_email );
@@ -246,28 +245,57 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		/**
 		 * Email Template Body
 		 *
+		 * @global wpdb         $wpdb      WordPress database object for queries.
+		 * @global PasswordHash $wp_hasher Portable PHP password hashing framework instance.
+		 *
 		 * @since 1.0
+		 * @param WP_User $user
 		 * @return string $default_email_body Body of the email
 		 */
-		public function get_email_body_content( $first_name, $username, $password ) {
+		public function get_email_body_content( $user ) {
+
+			global $wpdb, $wp_hasher;
+
+			// Taken from WP Core code in pluggable.php
+			// Generate something random for a password reset key.
+			$key    = wp_generate_password( 20, false );
+			// Now insert the key, hashed, into the DB.
+			if ( empty( $wp_hasher ) ) {
+				require_once ABSPATH . WPINC . '/class-phpass.php';
+				$wp_hasher = new PasswordHash( 8, true );
+			}
+			$hashed = time() . ':' . $wp_hasher->HashPassword( $key );
+			$wpdb->update( $wpdb->users, array( 'user_activation_key' => $hashed ), array( 'user_login' => $user->user_login ) );
 
 			// Email body
-			$default_email_body = __( "Dear", "edd-auto-register" ) . ' ' . $first_name . ",\n\n";
-			$default_email_body .= __( "Below are your login details:", "edd-auto-register" ) . "\n\n";
-			$default_email_body .= __( "Your Username:", "edd-auto-register" ) . ' ' . $username . "\n\n";
-			$default_email_body .= __( "Your Password:", "edd-auto-register" ) . ' ' . $password . "\n\n";
-			$default_email_body .= __( "Login:", "edd-auto-register" ) . ' ' . wp_login_url() . "\r\n";
 
-			$default_email_body = apply_filters( 'edd_auto_register_email_body', $default_email_body, $first_name, $username, $password );
+			$default_email_body = '<h1 style="color: #000000;margin:0;padding: 28px 24px;display:block;font-family: \'Helvetica Neue\', Helvetica, Arial, \'Lucida Grande\', sans-serif;font-size:32px;font-weight: 500;line-height: 1.2;">GiveWP - Account Access</h1>' . "\n\n";
+
+			$default_email_body  .= __( 'Dear', 'edd-auto-register' ) . ' ' . $user->first_name . ",\n\n";
+			$default_email_body .= __( 'Your account has been created and you now have access to your priority support, license management, downloads and more.', 'edd-auto-register' ) . "\n\n";
+//			$default_email_body .= __( 'Log in using your use your email or username:', 'edd-auto-register' ) . ' ' . $user->user_nicename . "\n\n";
+//			$default_email_body .= '<strong>' . __('Email:') . '</strong> ' . $user->user_email . "\n\n";
+//			$default_email_body .= '<strong>' . __('Username:') . '</strong> ' . $user->user_nicename. "\n\n";
+			$default_email_body .= __( 'To set your password, please visit the following address:' ) . "\r\n\r\n";
+			$default_email_body .= network_site_url( "wp-login.php?action=rp&key=$key&login=" . rawurlencode( $user->user_login ), 'login' ) . "\r\n\r\n";
+			$default_email_body .= '<strong>' . __( 'Registered Email:', 'edd-auto-register' ) . '</strong> ' . $user->user_email . "\r\n";
+			$default_email_body .= '<strong>' . __( 'Username:', 'edd-auto-register' ) . '</strong> ' . $user->user_nicename . "\r\n";
+			$default_email_body .= '<strong>' . __( 'Login:', 'edd-auto-register' ) . '</strong> ' . wp_login_url() . "\r\n";
+
+			$default_email_body = apply_filters( 'edd_auto_register_email_body', $default_email_body, $user->first_name, $user->user_nicename, '' );
 
 			return $default_email_body;
 		}
 
 		/**
 		 * Can checkout?
-		 * Prevents the form from being displayed when User must be logged in (Guest Checkout disabled), but "Show Register / Login Form?" is not
+		 *
+		 * Prevents the form from being displayed when User must be logged in (Guest Checkout disabled), but "Show Register / Login Form?" is not.
 		 *
 		 * @since 1.0
+		 *
+		 * @param $can_checkout bool
+		 * @return bool
 		 */
 		public function can_checkout( $can_checkout ) {
 
@@ -310,7 +338,6 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 						remove_action( 'user_register', 'edd_connect_existing_customer_to_new_user', 10, 1 );
 						remove_action( 'user_register', 'edd_add_past_purchases_to_new_user', 10, 1 );
 					}
-
 				}
 
 				// We will manually re-build the purchase_data array the way that create_user expects it.
@@ -322,7 +349,7 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 					'purchase_key' => $payment->key,
 					'currency'     => $payment->currency,
 					'downloads'    => $payment->downloads,
-					'user_info' => array(
+					'user_info'    => array(
 						'id'         => $payment->user_id,
 						'email'      => $payment->email,
 						'first_name' => $payment->first_name,
@@ -339,7 +366,7 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 
 			} else {
 
-				if( function_exists( 'did_action' ) && ! did_action( 'edd_create_payment' ) ) {
+				if ( function_exists( 'did_action' ) && ! did_action( 'edd_create_payment' ) ) {
 
 					// Don't use the current user ID when creating payments through Manual Purchases
 					$user_id = get_current_user_id();
@@ -365,8 +392,8 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		 * Processes the supplied payment data to possibly register a user
 		 *
 		 * @since  1.3.3
-		 * @param  array   $payment_data The Payment data
-		 * @param  int     $payment_id   The payment ID
+		 * @param  array $payment_data The Payment data
+		 * @param  int   $payment_id   The payment ID
 		 * @return int|WP_Error          The User ID created or an instance of WP_Error if the insert fails
 		 */
 		public function create_user( $payment_data = array(), $payment_id = 0 ) {
@@ -389,17 +416,18 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 			}
 
 			// Okay we need to create a user and possibly log them in
-
 			// Since this filter existed before, we must send in a $payment_id, which we default to false if none is supplied
-			$user_args = apply_filters( 'edd_auto_register_insert_user_args', array(
-				'user_login'      => $user_name,
-				'user_pass'       => wp_generate_password( 32 ),
-				'user_email'      => $payment_data['user_info']['email'],
-				'first_name'      => $payment_data['user_info']['first_name'],
-				'last_name'       => $payment_data['user_info']['last_name'],
-				'user_registered' => date( 'Y-m-d H:i:s' ),
-				'role'            => get_option( 'default_role' )
-			), $payment_id, $payment_data );
+			$user_args = apply_filters(
+				'edd_auto_register_insert_user_args', array(
+					'user_login'      => $user_name,
+					'user_pass'       => wp_generate_password( 32 ),
+					'user_email'      => $payment_data['user_info']['email'],
+					'first_name'      => $payment_data['user_info']['first_name'],
+					'last_name'       => $payment_data['user_info']['last_name'],
+					'user_registered' => date( 'Y-m-d H:i:s' ),
+					'role'            => get_option( 'default_role' ),
+				), $payment_id, $payment_data
+			);
 
 			// Insert new user
 			$user_id = wp_insert_user( $user_args );
@@ -418,7 +446,7 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 
 				}
 
-				$customer    = new EDD_Customer( $payment_data['user_info']['email'] );
+				$customer = new EDD_Customer( $payment_data['user_info']['email'] );
 				$customer->update( array( 'user_id' => $user_id ) );
 			}
 
@@ -434,18 +462,24 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		public function settings( $settings ) {
 			$edd_ar_settings = array(
 				array(
-					'id' => 'edd_auto_register_header',
+					'id'   => 'edd_auto_register_header',
 					'name' => '<strong>' . __( 'Auto Register', 'edd-auto-register' ) . '</strong>',
 					'type' => 'header',
 				),
 				array(
-					'id' => 'edd_auto_register_disable_user_email',
+					'id'   => 'edd_auto_register_disable_user_email',
 					'name' => __( 'Disable User Email', 'edd-auto-register' ),
 					'desc' => __( 'Disables the email sent to the user that contains login details', 'edd-auto-register' ),
 					'type' => 'checkbox',
 				),
 				array(
-					'id' => 'edd_auto_register_disable_admin_email',
+					'id'   => 'edd_auto_register_enforce_password_updating',
+					'name' => __( 'Enforce Password Update', 'edd-auto-register' ),
+					'desc' => __( 'Disables sending of passwords in plain text in the new user welcome email', 'edd-auto-register' ),
+					'type' => 'checkbox',
+				),
+				array(
+					'id'   => 'edd_auto_register_disable_admin_email',
 					'name' => __( 'Disable Admin Notification', 'edd-auto-register' ),
 					'desc' => __( 'Disables the new user registration email sent to the admin', 'edd-auto-register' ),
 					'type' => 'checkbox',
@@ -462,7 +496,7 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		 */
 		public function remove_register_form( $value, $key, $default ) {
 
-			if ( 'both' === $value ){
+			if ( 'both' === $value ) {
 				$value = 'login';
 			} elseif ( 'registration' === $value ) {
 				$value = 'none';
@@ -494,7 +528,7 @@ function edd_auto_register() {
 
 	if ( ! function_exists( 'edd_debug_log' ) ) {
 		function edd_debug_log( $message = '' ) {
-			error_log( $message, 3,  trailingslashit( wp_upload_dir() ) . 'edd-debug-log.txt' );
+			error_log( $message, 3, trailingslashit( wp_upload_dir() ) . 'edd-debug-log.txt' );
 		}
 	}
 
