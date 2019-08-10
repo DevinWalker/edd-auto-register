@@ -1,5 +1,5 @@
 === EDD Auto Register ===
-Contributors: easydigitaldownloads, sumobi, mordauk, cklosows, mindctrl
+Contributors: easydigitaldownloads, sumobi, mordauk, cklosows, mindctrl, dlocc
 Donate link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=EFUPMPEZPGW7L
 Tags: easy digital downloads, digital downloads, e-downloads, edd, sumobi, purchase, auto, register, registration, e-commerce
 Requires at least: 3.3
