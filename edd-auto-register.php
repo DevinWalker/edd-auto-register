@@ -184,10 +184,14 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 
 
 		/**
-		 * Notifications
+		 * Email notifications
+		 *
 		 * Sends the user an email with their logins details and also sends the site admin an email notifying them of a signup
 		 *
 		 * @since 1.1
+		 *
+		 * @param int $user_id
+		 * @param array $user_data
 		 */
 		public function email_notifications( $user_id = 0, $user_data = array() ) {
 
@@ -214,7 +218,7 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 			}
 
 			// message
-			$message = $this->get_email_body_content( $user );
+			$message = $this->get_email_body_content( $user, $user_data );
 
 			// subject line
 			$subject = apply_filters( 'edd_auto_register_email_subject', sprintf( __( '[%s] Your username and password info', 'edd-auto-register' ), $blogname ) );
@@ -244,40 +248,41 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		 * Email Template Body
 		 *
 		 * @param WP_User $user
+		 * @param array $user_data
 		 *
 		 * @return string $default_email_body Body of the email
 		 * @since 1.0
 		 * @global wpdb $wpdb WordPress database object for queries.
 		 * @global PasswordHash $wp_hasher Portable PHP password hashing framework instance.
 		 */
-		public function get_email_body_content( $user ) {
+		public function get_email_body_content( $user, $user_data = array() ) {
 
-			global $wpdb, $wp_hasher;
+			global $wpdb;
 
-			// Taken from WP Core code in pluggable.php
-			// Generate something random for a password reset key.
-			$key = wp_generate_password( 20, false );
-			// Now insert the key, hashed, into the DB.
-			if ( empty( $wp_hasher ) ) {
+			$pw_option = edd_get_option( 'edd_auto_register_enforce_password_updating', true );
+			if ( ! empty( $pw_option ) ) {
+				// Taken from WP Core code in pluggable.php
+				// Generate something random for a password reset key.
+				$key       = wp_generate_password( 20, false );
+				// Now insert the key, hashed, into the DB.
 				require_once ABSPATH . WPINC . '/class-phpass.php';
 				$wp_hasher = new PasswordHash( 8, true );
+				$hashed    = time() . ':' . $wp_hasher->HashPassword( $key );
+				$wpdb->update( $wpdb->users, array( 'user_activation_key' => $hashed ), array( 'user_login' => $user->user_login ) );
 			}
-			$hashed = time() . ':' . $wp_hasher->HashPassword( $key );
-			$wpdb->update( $wpdb->users, array( 'user_activation_key' => $hashed ), array( 'user_login' => $user->user_login ) );
 
 			// Email body
-			$default_email_body = '<h1 style="color: #000000;margin:0;padding: 28px 24px;display:block;font-family: \'Helvetica Neue\', Helvetica, Arial, \'Lucida Grande\', sans-serif;font-size:32px;font-weight: 500;line-height: 1.2;">Your Account Access</h1>' . "\n\n";
+			$default_email_body = '<h1 style="color: #000000;margin:0;padding: 28px 24px;display:block;font-family: \'Helvetica Neue\', Helvetica, Arial, \'Lucida Grande\', sans-serif;font-size:32px;font-weight: 500;line-height: 1.2; text-align: center;"> Account Access</h1>' . "\n\n";
 
 			$default_email_body .= __( 'Dear', 'edd-auto-register' ) . ' ' . $user->first_name . ",\n\n";
 			$default_email_body .= __( 'Your account has successfully been created. Please find your login details below:', 'edd-auto-register' ) . "\n\n";
-			$default_email_body .= __( 'You may log in using either your email or username.', 'edd-auto-register' ) . "\n\n";
+			$default_email_body .= '<em>' . __( 'You may log in using either your email or username.', 'edd-auto-register' ) . "</em>\n\n";
 			$default_email_body .= '<strong>' . __( 'Registered Email:' ) . '</strong> ' . $user->user_email . "\n\n";
 			$default_email_body .= '<strong>' . __( 'Your Username:' ) . '</strong> ' . $user->user_nicename . "\n\n";
 
-			$pw_option = get_option( 'edd_auto_register_enforce_password_updating', false );
-
-			if ( $pw_option ) {
-				$default_email_body .= __( "Your Password:", "edd-auto-register" ) . ' ' . $user->user_pass . "\n\n";
+			// Send PW or force update like WP Core.
+			if ( ! empty( $pw_option ) ) {
+				$default_email_body .= '<strong>' . __( 'Your Password:', 'edd-auto-register' ) . '</strong> ' . $user_data['user_pass'] . "\n\n";
 			} else {
 				$default_email_body .= __( 'To set your password, please visit the following address:' ) . "\r\n\r\n";
 				$default_email_body .= network_site_url( "wp-login.php?action=rp&key=$key&login=" . rawurlencode( $user->user_login ), 'login' ) . "\r\n\r\n";
@@ -459,8 +464,13 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		 * Settings
 		 *
 		 * @since 1.1
+		 *
+		 * @param $settings
+		 *
+		 * @return array
 		 */
 		public function settings( $settings ) {
+
 			$edd_ar_settings = array(
 				array(
 					'id'   => 'edd_auto_register_header',
@@ -494,6 +504,12 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 		 * Hide the registration form on checkout
 		 *
 		 * @since 1.3
+		 *
+		 * @param $value
+		 * @param $key
+		 * @param $default
+		 *
+		 * @return string
 		 */
 		public function remove_register_form( $value, $key, $default ) {
 
