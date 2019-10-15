@@ -221,7 +221,7 @@ if ( ! class_exists( 'EDD_Auto_Register' ) ) {
 			$message = $this->get_email_body_content( $user, $user_data );
 
 			// subject line
-			$subject = apply_filters( 'edd_auto_register_email_subject', sprintf( __( '[%s] Your username and password info', 'edd-auto-register' ), $blogname ) );
+			$subject = apply_filters( 'edd_auto_register_email_subject', sprintf( __( '[%s] Your Username and Password Info', 'edd-auto-register' ), $blogname ) );
 
 			// get from name and email from EDD options
 			$from_name  = edd_get_option( 'from_name', get_bloginfo( 'name' ) );
